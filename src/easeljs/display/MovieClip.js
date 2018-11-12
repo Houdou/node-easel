@@ -36,61 +36,250 @@ this.createjs = this.createjs||{};
 (function() {
 	"use strict";
 
-/**
- * The MovieClip class associates a TweenJS Timeline with an EaselJS {{#crossLink "Container"}}{{/crossLink}}. It allows
- * you to create objects which encapsulate timeline animations, state changes, and synched actions. Due to the
- * complexities inherent in correctly setting up a MovieClip, it is largely intended for tool output and is not included
- * in the main EaselJS library.
- *
- * Currently MovieClip only works properly if it is tick based (as opposed to time based) though some concessions have
- * been made to support time-based timelines in the future.
- *
- * <h4>Example</h4>
- * This example animates two shapes back and forth. The grey shape starts on the left, but we jump to a mid-point in
- * the animation using {{#crossLink "MovieClip/gotoAndPlay"}}{{/crossLink}}.
- *
- *      var stage = new createjs.Stage("canvas");
- *      createjs.Ticker.addEventListener("tick", stage);
- *
- *      var mc = new createjs.MovieClip(null, 0, true, {start:20});
- *      stage.addChild(mc);
- *
- *      var child1 = new createjs.Shape(
- *          new createjs.Graphics().beginFill("#999999")
- *              .drawCircle(30,30,30));
- *      var child2 = new createjs.Shape(
- *          new createjs.Graphics().beginFill("#5a9cfb")
- *              .drawCircle(30,30,30));
- *
- *      mc.timeline.addTween(
- *          createjs.Tween.get(child1)
- *              .to({x:0}).to({x:60}, 50).to({x:0}, 50));
- *      mc.timeline.addTween(
- *          createjs.Tween.get(child2)
- *              .to({x:60}).to({x:0}, 50).to({x:60}, 50));
- *
- *      mc.gotoAndPlay("start");
- *
- * It is recommended to use <code>tween.to()</code> to animate and set properties (use no duration to have it set
- * immediately), and the <code>tween.wait()</code> method to create delays between animations. Note that using the
- * <code>tween.set()</code> method to affect properties will likely not provide the desired result.
- *
- * @class MovieClip
- * @main MovieClip
- * @extends Container
- * @constructor
- * @param {String} [mode=independent] Initial value for the mode property. One of MovieClip.INDEPENDENT,
- * MovieClip.SINGLE_FRAME, or MovieClip.SYNCHED. The default is MovieClip.INDEPENDENT.
- * @param {Number} [startPosition=0] Initial value for the startPosition property.
- * @param {Boolean} [loop=true] Initial value for the loop property. The default is true.
- * @param {Object} [labels=null] A hash of labels to pass to the timeline instance associated with this MovieClip.
- * Labels only need to be passed if they need to be used.
- **/
-var MovieClip = function(mode, startPosition, loop, labels) {
-  this.initialize(mode, startPosition, loop, labels);
-};
-var p = MovieClip.prototype = new createjs.Container();
 
+// constructor:
+	/**
+	 * The MovieClip class associates a TweenJS Timeline with an EaselJS {{#crossLink "Container"}}{{/crossLink}}. It allows
+	 * you to create objects which encapsulate timeline animations, state changes, and synched actions. The MovieClip
+	 * class has been included in the EaselJS minified file since 0.7.0.
+	 *
+	 * Currently MovieClip only works properly if it is tick based (as opposed to time based) though some concessions have
+	 * been made to support time-based timelines in the future.
+	 *
+	 * <h4>Example</h4>
+	 * This example animates two shapes back and forth. The grey shape starts on the left, but we jump to a mid-point in
+	 * the animation using {{#crossLink "MovieClip/gotoAndPlay"}}{{/crossLink}}.
+	 *
+	 *      var stage = new createjs.Stage("canvas");
+	 *      createjs.Ticker.addEventListener("tick", stage);
+	 *
+	 *      var mc = new createjs.MovieClip({loop:-1, labels:{myLabel:20}});
+	 *      stage.addChild(mc);
+	 *
+	 *      var child1 = new createjs.Shape(
+	 *          new createjs.Graphics().beginFill("#999999")
+	 *              .drawCircle(30,30,30));
+	 *      var child2 = new createjs.Shape(
+	 *          new createjs.Graphics().beginFill("#5a9cfb")
+	 *              .drawCircle(30,30,30));
+	 *
+	 *      mc.timeline.addTween(
+	 *          createjs.Tween.get(child1)
+	 *              .to({x:0}).to({x:60}, 50).to({x:0}, 50));
+	 *      mc.timeline.addTween(
+	 *          createjs.Tween.get(child2)
+	 *              .to({x:60}).to({x:0}, 50).to({x:60}, 50));
+	 *
+	 *      mc.gotoAndPlay("start");
+	 *
+	 * It is recommended to use `tween.to()` to animate and set properties (use no duration to have it set
+	 * immediately), and the `tween.wait()`method to create delays between animations. Note that using the
+	 * `tween.set()` method to affect properties will likely not provide the desired result.
+	 *
+	 * @class MovieClip
+	 * @main MovieClip
+	 * @param {Object} [props] The configuration properties to apply to this instance (ex. `{mode:MovieClip.SYNCHED}`).
+	 * Supported props for the MovieClip are listed below. These props are set on the corresponding instance properties
+	 * except where specified.<UL>
+	 *    <LI> `mode`</LI>
+	 *    <LI> `startPosition`</LI>
+	 *    <LI> `frameBounds`</LI>
+	 * </UL>
+	 * 
+	 * This object will also be passed into the Timeline instance associated with this MovieClip. See the documentation
+	 * for Timeline for a list of supported props (ex. `paused`, `labels`, `loop`, `reversed`, etc.)
+	 * @extends Container
+	 * @constructor
+	 **/
+	function MovieClip(props) {
+		this.Container_constructor();
+		!MovieClip.inited&&MovieClip.init(); // static init
+		
+		var mode, startPosition, loop, labels;
+		
+		// handle old params (mode, startPosition, loop, labels):
+		// TODO: deprecated param handling:
+		if (props instanceof String || arguments.length > 1) {
+			mode = props;
+			startPosition = arguments[1];
+			loop = arguments[2];
+			labels = arguments[3];
+			if (loop == null) { loop = -1; }
+			props = null;
+		} else if (props) {
+			mode = props.mode;
+			startPosition = props.startPosition;
+			loop = props.loop;
+			labels = props.labels;
+		}
+		if (!props) { props = {labels:labels}; }
+		
+		
+	// public properties:
+		/**
+		 * Controls how this MovieClip advances its time. Must be one of 0 (INDEPENDENT), 1 (SINGLE_FRAME), or 2 (SYNCHED).
+		 * See each constant for a description of the behaviour.
+		 * @property mode
+		 * @type String
+		 * @default null
+		 **/
+		this.mode = mode||MovieClip.INDEPENDENT;
+	
+		/**
+		 * Specifies what the first frame to play in this movieclip, or the only frame to display if mode is SINGLE_FRAME.
+		 * @property startPosition
+		 * @type Number
+		 * @default 0
+		 */
+		this.startPosition = startPosition||0;
+	
+		/**
+		 * Specifies how many times this MovieClip should loop. A value of -1 indicates it should loop indefinitely. A value of
+		 * 1 would cause it to loop once (ie. play a total of twice).
+		 * @property loop
+		 * @type Number
+		 * @default -1
+		 */
+		this.loop = loop === true ? -1 : (loop || 0);
+	
+		/**
+		 * The current frame of the movieclip.
+		 * @property currentFrame
+		 * @type Number
+		 * @default 0
+		 * @readonly
+		 */
+		this.currentFrame = 0;
+	
+		/**
+		 * If true, the MovieClip's position will not advance when ticked.
+		 * @property paused
+		 * @type Boolean
+		 * @default false
+		 */
+		this.paused = props.paused||false;
+	
+		/**
+		 * If true, actions in this MovieClip's tweens will be run when the playhead advances.
+		 * @property actionsEnabled
+		 * @type Boolean
+		 * @default true
+		 */
+		this.actionsEnabled = true;
+	
+		/**
+		 * If true, the MovieClip will automatically be reset to its first frame whenever the timeline adds
+		 * it back onto the display list. This only applies to MovieClip instances with `mode` of "INDEPENDENT".
+
+		 * For example, if you had a character animation with a "body" child MovieClip instance with different costumes
+		 * on each frame, you could set `body.autoReset = false`, so that you can manually change the frame it is on,
+		 * without worrying that it will be reset automatically.
+		 * @property autoReset
+		 * @type Boolean
+		 * @default true
+		 */
+		this.autoReset = true;
+		
+		/**
+		 * An array of bounds for each frame in the MovieClip. This is mainly intended for tool output.
+		 * @property frameBounds
+		 * @type Array
+		 * @default null
+		 */
+		this.frameBounds = this.frameBounds||props.frameBounds; // frameBounds are set on the prototype in Animate.
+		
+		/**
+		 * By default MovieClip instances advance one frame per tick. Specifying a framerate for the MovieClip
+		 * will cause it to advance based on elapsed time between ticks as appropriate to maintain the target
+		 * framerate.
+		 *
+		 * For example, if a MovieClip with a framerate of 10 is placed on a Stage being updated at 40fps, then the MovieClip will
+		 * advance roughly one frame every 4 ticks. This will not be exact, because the time between each tick will
+		 * vary slightly between frames.
+		 *
+		 * This feature is dependent on the tick event object (or an object with an appropriate "delta" property) being
+		 * passed into {{#crossLink "Stage/update"}}{{/crossLink}}.
+		 * @property framerate
+		 * @type {Number}
+		 * @default null
+		 **/
+		this.framerate = null;
+		
+		// set up the needed props for Timeline:
+		props.useTicks = props.paused = true;
+		
+		/**
+		 * The TweenJS Timeline that is associated with this MovieClip. This is created automatically when the MovieClip
+		 * instance is initialized. Animations are created by adding <a href="http://tweenjs.com">TweenJS</a> Tween
+		 * instances to the timeline.
+		 *
+		 * <h4>Example</h4>
+		 *
+		 *      var tween = createjs.Tween.get(target).to({x:0}).to({x:100}, 30);
+		 *      var mc = new createjs.MovieClip();
+		 *      mc.timeline.addTween(tween);
+		 *
+		 * Elements can be added and removed from the timeline by toggling an "_off" property
+		 * using the `tweenInstance.to()` method. Note that using `Tween.set` is not recommended to create MovieClip
+		 * animations. The following example will toggle the target off on frame 0, and then back on for frame 1. You
+		 * can use the "visible" property to achieve the same effect.
+		 *
+		 *      var tween = createjs.Tween.get(target).to({_off:false})
+		 *          .wait(1).to({_off:true})
+		 *          .wait(1).to({_off:false});
+		 *
+		 * @property timeline
+		 * @type Timeline
+		 * @default null
+		 */
+		this.timeline = new createjs.Timeline(props);
+		
+		
+	// private properties:
+		/**
+		 * @property _synchOffset
+		 * @type Number
+		 * @default 0
+		 * @private
+		 */
+		this._synchOffset = 0;
+	
+		/**
+		 * @property _rawPosition
+		 * @type Number
+		 * @default -1
+		 * @private
+		 */
+		this._rawPosition = -1; // TODO: evaluate using a ._reset Boolean prop instead of -1.
+		
+		/**
+		 * @property _bound_resolveState
+		 * @type Function
+		 * @private
+		 */
+		this._bound_resolveState = this._resolveState.bind(this);
+	
+	
+		/**
+		 * The time remaining from the previous tick, only applicable when .framerate is set.
+		 * @property _t
+		 * @type Number
+		 * @private
+		 */
+		this._t = 0;
+	
+		/**
+		 * List of display objects that are actively being managed by the MovieClip.
+		 * @property _managed
+		 * @type Object
+		 * @private
+		 */
+		this._managed = {};
+	}
+	var p = createjs.extend(MovieClip, createjs.Container);
+
+
+// constants:
 	/**
 	 * The MovieClip will advance independently of its parent, even if its parent is paused.
 	 * This is the default mode.
@@ -122,171 +311,124 @@ var p = MovieClip.prototype = new createjs.Container();
 	 * @readonly
 	 **/
 	MovieClip.SYNCHED = "synched";
-
-// public properties:
-
-	/**
-	 * Controls how this MovieClip advances its time. Must be one of 0 (INDEPENDENT), 1 (SINGLE_FRAME), or 2 (SYNCHED).
-	 * See each constant for a description of the behaviour.
-	 * @property mode
-	 * @type String
-	 * @default null
-	 **/
-	p.mode;
-
-	/**
-	 * Specifies what the first frame to play in this movieclip, or the only frame to display if mode is SINGLE_FRAME.
-	 * @property startPosition
-	 * @type Number
-	 * @default 0
-	 */
-	p.startPosition = 0;
-
-	/**
-	 * Indicates whether this MovieClip should loop when it reaches the end of its timeline.
-	 * @property loop
-	 * @type Boolean
-	 * @default true
-	 */
-	p.loop = true;
-
-	/**
-	 * The current frame of the movieclip.
-	 * @property currentFrame
-	 * @type Number
-	 * @default 0
-	 * @readonly
-	 */
-	p.currentFrame = 0;
-
-	/**
-	 * The TweenJS Timeline that is associated with this MovieClip. This is created automatically when the MovieClip
-	 * instance is initialized. Animations are created by adding <a href="http://tweenjs.com">TweenJS</a> Tween
-	 * instances to the timeline.
-	 *
-	 * <h4>Example</h4>
-	 *      var tween = createjs.Tween.get(target).to({x:0}).to({x:100}, 30);
-	 *      var mc = new createjs.MovieClip();
-	 *      mc.timeline.addTween(tween);
-	 *
-	 * Elements can be added and removed from the timeline by toggling an "_off" property
-	 * using the <code>tweenInstance.to()</code> method. Note that using <code>Tween.set</code> is not recommended to
-	 * create MovieClip animations. The following example will toggle the target off on frame 0, and then back on for
-	 * frame 1. You can use the "visible" property to achieve the same effect.
-	 *
-	 *      var tween = createjs.Tween.get(target).to({_off:false})
-	 *          .wait(1).to({_off:true})
-	 *          .wait(1).to({_off:false});
-	 *
-	 * @property timeline
-	 * @type Timeline
-	 * @default null
-	 */
-	p.timeline = null;
-
-	/**
-	 * If true, the MovieClip's position will not advance when ticked.
-	 * @property paused
-	 * @type Boolean
-	 * @default false
-	 */
-	p.paused = false;
-
-	/**
-	 * If true, actions in this MovieClip's tweens will be run when the playhead advances.
-	 * @property actionsEnabled
-	 * @type Boolean
-	 * @default true
-	 */
-	p.actionsEnabled = true;
-
-	/**
-	 * If true, the MovieClip will automatically be reset to its first frame whenever the timeline adds
-	 * it back onto the display list. This only applies to MovieClip instances with mode=INDEPENDENT.
-	 * <br><br>
-	 * For example, if you had a character animation with a "body" child MovieClip instance
-	 * with different costumes on each frame, you could set body.autoReset = false, so that
-	 * you can manually change the frame it is on, without worrying that it will be reset
-	 * automatically.
-	 * @property autoReset
-	 * @type Boolean
-	 * @default true
-	 */
-	p.autoReset = true;
-	
-	/**
-	 * An array of bounds for each frame in the MovieClip. This is mainly intended for tool output.
-	 * @property frameBounds
-	 * @type Array
-	 * @default null
-	 */
-	p.frameBounds = null;
 	
 	
-// private properties:
-	/**
-	 * @property _synchOffset
-	 * @type Number
-	 * @default 0
-	 * @private
-	 */
-	p._synchOffset = 0;
-
-	/**
-	 * @property _prevPos
-	 * @type Number
-	 * @default -1
-	 * @private
-	 */
-	p._prevPos = -1; // TODO: evaluate using a ._reset Boolean prop instead of -1.
-
-	/**
-	 * @property _prevPosition
-	 * @type Number
-	 * @default 0
-	 * @private
-	 */
-	p._prevPosition = 0;
-
-	/**
-	 * List of display objects that are actively being managed by the MovieClip.
-	 * @property _managed
-	 * @type Object
-	 * @private
-	 */
-	p._managed;
-
-// constructor:
-
-	/**
-	 * @property DisplayObject_initialize
-	 * @type Function
-    * @private
-	 **/
-	p.Container_initialize = p.initialize;
-
-	/** 
-	 * Initialization method called by the constructor.
-	 * @method initialize
-	 * @param {String} [mode=independent] Initial value for the mode property. One of MovieClip.INDEPENDENT,
-	 * MovieClip.SINGLE_FRAME, or MovieClip.SYNCHED. The default is MovieClip.INDEPENDENT.
-	 * @param {Number} [startPosition=0] Initial value for the startPosition property.
-	 * @param {Boolean} [loop=true] Initial value for the loop property. The default is true.
-	 * @param {Object} [labels=null] A hash of labels to pass to the timeline instance associated with this MovieClip.
-	 * Labels only need to be passed if they need to be used.
-	 * @protected
-	 **/
-	p.initialize = function(mode, startPosition, loop, labels) {
-		this.mode = mode||MovieClip.INDEPENDENT;
-		this.startPosition = startPosition || 0;
-		this.loop = loop;
-		var props = {paused:true, position:startPosition, useTicks:true};
-		this.Container_initialize();
-		this.timeline = new createjs.Timeline(null, labels, props);
-		this._managed = {};
+// static properties:
+	MovieClip.inited = false;
+	
+	
+// static methods:
+	MovieClip.init = function() {
+		if (MovieClip.inited) { return; }
+		// plugins introduce some overhead to Tween, so we only install this if an MC is instantiated.
+		MovieClipPlugin.install();
+		MovieClip.inited = true;
 	};
 	
+	
+// getter / setters:
+	/**
+	 * Use the {{#crossLink "MovieClip/labels:property"}}{{/crossLink}} property instead.
+	 * @method _getLabels
+	 * @protected
+	 * @return {Array}
+	 **/
+	p._getLabels = function() {
+		return this.timeline.getLabels();
+	};
+
+	/**
+	 * Use the {{#crossLink "MovieClip/labels:property"}}{{/crossLink}} property instead.
+	 * @method getLabels
+	 * @deprecated
+	 */
+	// MovieClip.getLabels is @deprecated. Remove for 1.1+
+	p.getLabels = createjs.deprecate(p._getLabels, "MovieClip.getLabels");
+
+	/**
+	 * Use the {{#crossLink "MovieClip/currentLabel:property"}}{{/crossLink}} property instead.
+	 * @method _getCurrentLabel
+	 * @protected
+	 * @return {String}
+	 **/
+	p._getCurrentLabel = function() {
+		return this.timeline.currentLabel;
+	};
+
+	/**
+	 * Use the {{#crossLink "MovieClip/currentLabel:property"}}{{/crossLink}} property instead.
+	 * @method getCurrentLabel
+	 * @deprecated
+	 */
+	// MovieClip.getCurrentLabel is @deprecated. Remove for 1.1+
+	p.getCurrentLabel = createjs.deprecate(p._getCurrentLabel, "MovieClip.getCurrentLabel");
+
+	/**
+	 * Use the {{#crossLink "MovieClip/duration:property"}}{{/crossLink}} property instead.
+	 * @method _getDuration
+	 * @protected
+	 * @return {Number}
+	 **/
+	p._getDuration = function() {
+		return this.timeline.duration;
+	};
+
+	/**
+	 * Use the {{#crossLink "MovieClip/duration:property"}}{{/crossLink}} property instead.
+	 * @method getDuration
+	 * @deprecated
+	 */
+	// MovieClip.getDuration is @deprecated. Remove for 1.1+
+	p.getDuration = createjs.deprecate(p._getDuration, "MovieClip.getDuration");
+
+	/**
+	 * Returns an array of objects with label and position (aka frame) properties, sorted by position.
+	 * @property labels
+	 * @type {Array}
+	 * @readonly
+	 **/
+	
+	/**
+	 * Returns the name of the label on or immediately before the current frame.
+	 * @property currentLabel
+	 * @type {String}
+	 * @readonly
+	 **/
+	
+	/**
+	 * Returns the duration of this MovieClip in seconds or ticks.
+	 * @property totalFrames
+	 * @type {Number}
+	 * @readonly
+	 **/
+	
+	/**
+	 * Returns the duration of this MovieClip in seconds or ticks.
+	 * @property duration
+	 * @type {Number}
+	 * @readonly
+	 **/
+	try {
+		Object.defineProperties(p, {
+			labels: { get: p._getLabels },
+			currentLabel: { get: p._getCurrentLabel },
+			totalFrames: { get: p._getDuration },
+			duration: { get: p._getDuration }
+			// TODO: can we just proxy .currentFrame to tl.position as well? Ditto for .loop (or just remove entirely).
+		});
+	} catch (e) {}
+
+
 // public methods:
+	/**
+	 * Constructor alias for backwards compatibility. This method will be removed in future versions.
+	 * Subclasses should be updated to use {{#crossLink "Utility Methods/extend"}}{{/crossLink}} and
+	 * {{#crossLink "Utility Methods/promote"}}{{/crossLink}} instead.
+	 * @method initialize
+	 * @deprecated
+	 **/
+	p.initialize = MovieClip; // TODO: Deprecated. This is for backwards support of Adobe Flash/Animate
+
 	/**
 	 * Returns true or false indicating whether the display object would be visible if drawn to a canvas.
 	 * This does not account for whether it would be visible within the boundaries of the stage.
@@ -298,13 +440,6 @@ var p = MovieClip.prototype = new createjs.Container();
 		// children are placed in draw, so we can't determine if we have content.
 		return !!(this.visible && this.alpha > 0 && this.scaleX != 0 && this.scaleY != 0);
 	};
-
-	/**
-	 * @property Container_draw
-	 * @type Function
-	 * @private
-	 **/
-	p.Container_draw = p.draw;
 
 	/**
 	 * Draws the display object into the specified context ignoring its visible, alpha, shadow, and transform.
@@ -319,12 +454,11 @@ var p = MovieClip.prototype = new createjs.Container();
 	p.draw = function(ctx, ignoreCache) {
 		// draw to cache first:
 		if (this.DisplayObject_draw(ctx, ignoreCache)) { return true; }
-		this._updateTimeline();
+		this._updateState();
 		this.Container_draw(ctx, ignoreCache);
 		return true;
 	};
-	
-	
+
 	/**
 	 * Sets paused to false.
 	 * @method play
@@ -361,25 +495,26 @@ var p = MovieClip.prototype = new createjs.Container();
 		this._goto(positionOrLabel);
 	};
 	
-	
 	/**
-	 * Returns a sorted list of the labels defined on this MovieClip. Shortcut to TweenJS: Timeline.getLabels();
-	 * @method getLabels
-	 * @return {Array[Object]} A sorted array of objects with label and position (aka frame) properties.
-	 **/
-	p.getLabels = function() {
-		return this.timeline.getLabels();
-	};
-	
-	/**
-	 * Returns the name of the label on or immediately before the current frame. See TweenJS: Timeline.getCurrentLabel()
-	 * for more information.
-	 * @method getCurrentLabel
-	 * @return {String} The name of the current label or null if there is no label.
-	 **/
-	p.getCurrentLabel = function() {
-		this._updateTimeline();
-		return this.timeline.getCurrentLabel();
+	 * Advances the playhead. This occurs automatically each tick by default.
+	 * @param [time] {Number} The amount of time in ms to advance by. Only applicable if framerate is set.
+	 * @method advance
+	*/
+	p.advance = function(time) {
+		var independent = MovieClip.INDEPENDENT;
+		if (this.mode !== independent) { return; } // update happens in draw for synched clips
+		
+		// if this MC doesn't have a framerate, hunt ancestors for one:
+		var o=this, fps = o.framerate;
+		while ((o = o.parent) && fps === null) { if (o.mode === independent) { fps = o._framerate; } }
+		this._framerate = fps;
+		
+		// calculate how many frames to advance:
+		var t = (fps !== null && fps !== -1 && time !== null) ? time/(1000/fps) + this._t : 1;
+		var frames = t|0;
+		this._t = t-frames; // leftover time, save to add to next advance.
+		
+		while (!this.paused && frames--) { this._updateTimeline(this._rawPosition+1, false); }
 	};
 	
 	/**
@@ -388,7 +523,7 @@ var p = MovieClip.prototype = new createjs.Container();
 	 **/
 	p.clone = function() {
 		// TODO: add support for this? Need to clone the Timeline & retarget tweens - pretty complex.
-		throw("MovieClip cannot be cloned.")
+		throw("MovieClip cannot be cloned.");
 	};
 	
 	/**
@@ -400,27 +535,21 @@ var p = MovieClip.prototype = new createjs.Container();
 		return "[MovieClip (name="+  this.name +")]";
 	};
 
-// private methods:
 
-	/**
-	 * @property Container__tick
-	 * @type Function
-	 * @protected
-	 **/
-	p.Container__tick = p._tick;
+// private methods:
+	p._updateState = function() {
+		if (this._rawPosition === -1 || this.mode !== MovieClip.INDEPENDENT) { this._updateTimeline(-1); }
+	};
 
 	/**
 	 * @method _tick
-	 * @param {Array} params Parameters to pass onto the DisplayObject {{#crossLink "DisplayObject/tick"}}{{/crossLink}}
+	 * @param {Object} evtObj An event object that will be dispatched to all tick listeners. This object is reused between dispatchers to reduce construction & GC costs.
 	 * function.
 	 * @protected
 	 **/
-	p._tick = function(params) {
-		if (!this.paused && this.mode == MovieClip.INDEPENDENT) {
-			this._prevPosition = (this._prevPos < 0) ? 0 : this._prevPosition+1;
-			this._updateTimeline();
-		}
-		this.Container__tick(params);
+	p._tick = function(evtObj) {
+		this.advance(evtObj&&evtObj.delta);
+		this.Container__tick(evtObj);
 	};
 	
 	/**
@@ -431,10 +560,8 @@ var p = MovieClip.prototype = new createjs.Container();
 	p._goto = function(positionOrLabel) {
 		var pos = this.timeline.resolve(positionOrLabel);
 		if (pos == null) { return; }
-		// prevent _updateTimeline from overwriting the new position because of a reset:
-		if (this._prevPos == -1) { this._prevPos = NaN; }
-		this._prevPosition = pos;
-		this._updateTimeline();
+		this._t = 0;
+		this._updateTimeline(pos, true);
 	};
 	
 	/**
@@ -442,37 +569,56 @@ var p = MovieClip.prototype = new createjs.Container();
 	 * @private
 	 **/
 	p._reset = function() {
-		this._prevPos = -1;
-		this.currentFrame = 0;
+		this._rawPosition = -1;
+		this._t = this.currentFrame = 0;
+		this.paused = false;
 	};
 	
 	/**
 	 * @method _updateTimeline
+	 * @param {Boolean} jump Indicates whether this update is due to jumping (via gotoAndXX) to a new position.
 	 * @protected
 	 **/
-	p._updateTimeline = function() {
-		var tl = this.timeline;
-		var synched = this.mode != MovieClip.INDEPENDENT;
-		tl.loop = (this.loop==null) ? true : this.loop;
-
+	p._updateTimeline = function(rawPosition, jump) {
+		var synced = this.mode !== MovieClip.INDEPENDENT, tl = this.timeline;
+		if (synced) { rawPosition = this.startPosition + (this.mode===MovieClip.SINGLE_FRAME?0:this._synchOffset); }
+		if (rawPosition < 0) { rawPosition = 0; }
+		if (this._rawPosition === rawPosition && !synced) { return; }
+		this._rawPosition = rawPosition;
+		
 		// update timeline position, ignoring actions if this is a graphic.
-		if (synched) {
-			tl.setPosition(this.startPosition + (this.mode==MovieClip.SINGLE_FRAME?0:this._synchOffset), createjs.Tween.NONE);
-		} else {
-			tl.setPosition(this._prevPos < 0 ? 0 : this._prevPosition, this.actionsEnabled ? null : createjs.Tween.NONE);
-		}
-
-		this._prevPosition = tl._prevPosition;
-		if (this._prevPos == tl._prevPos) { return; }
-		this.currentFrame = this._prevPos = tl._prevPos;
-
+		tl.loop = this.loop; // TODO: should we maintain this on MovieClip, or just have it on timeline?
+		tl.setPosition(rawPosition, synced || !this.actionsEnabled, jump, this._bound_resolveState);
+	};
+	
+	/**
+	 * Renders position 0 without running actions or updating _rawPosition.
+	 * Primarily used by Animate CC to build out the first frame in the constructor of MC symbols.
+	 * NOTE: not tested when run after the MC advances past the first frame.
+	 * @method _renderFirstFrame
+	 * @protected
+	 **/
+	p._renderFirstFrame = function() {
+		var tl = this.timeline, pos = tl.rawPosition;
+		tl.setPosition(0, true, true, this._bound_resolveState);
+		tl.rawPosition = pos;
+	};
+	
+	/**
+	 * Runs via a callback after timeline property updates and before actions.
+	 * @method _resolveState
+	 * @protected
+	 **/
+	p._resolveState = function() {
+		var tl = this.timeline;
+		this.currentFrame = tl.position;
+		
 		for (var n in this._managed) { this._managed[n] = 1; }
 
-		var tweens = tl._tweens;
+		var tweens = tl.tweens;
 		for (var i=0, l=tweens.length; i<l; i++) {
-			var tween = tweens[i];
-			var target = tween._target;
-			if (target == this || tween.passive) { continue; } // TODO: this assumes actions tween has this as the target. Valid?
+			var tween = tweens[i],  target = tween.target;
+			if (target === this || tween.passive) { continue; } // TODO: this assumes the actions tween from Animate has `this` as the target. There's likely a better approach.
 			var offset = tween._stepPosition;
 
 			if (target instanceof createjs.DisplayObject) {
@@ -487,7 +633,7 @@ var p = MovieClip.prototype = new createjs.Container();
 		var kids = this.children;
 		for (i=kids.length-1; i>=0; i--) {
 			var id = kids[i].id;
-			if (this._managed[id] == 1) {
+			if (this._managed[id] === 1) {
 				this.removeChildAt(i);
 				delete(this._managed[id]);
 			}
@@ -524,20 +670,12 @@ var p = MovieClip.prototype = new createjs.Container();
 
 		if (child instanceof MovieClip) {
 			child._synchOffset = offset;
-			// TODO: this does not precisely match Flash. Flash loses track of the clip if it is renamed or removed from the timeline, which causes it to reset.
-			if (child.mode == MovieClip.INDEPENDENT && child.autoReset && !this._managed[child.id]) { child._reset(); }
+			// TODO: this does not precisely match Adobe Flash/Animate, which loses track of the clip if it is renamed or removed from the timeline, which causes it to reset.
+			// TODO: should also reset when MovieClip loops, though that will be a bit tricky to detect.
+			if (child.mode === MovieClip.INDEPENDENT && child.autoReset && (!this._managed[child.id])) { child._reset(); }
 		}
 		this._managed[child.id] = 2;
 	};
-	
-	/**
-	 * @method Container__getBounds
-	 * @param {Matrix2D} matrix
-	 * @param {Boolean} ignoreTransform
-	 * @return {Rectangle}
-	 * @protected
-	 **/
-	p.Container__getBounds = p._getBounds;
 	
 	/**
 	 * @method _getBounds
@@ -549,17 +687,18 @@ var p = MovieClip.prototype = new createjs.Container();
 	p._getBounds = function(matrix, ignoreTransform) {
 		var bounds = this.DisplayObject_getBounds();
 		if (!bounds) {
-			this._updateTimeline();
 			if (this.frameBounds) { bounds = this._rectangle.copy(this.frameBounds[this.currentFrame]); }
 		}
 		if (bounds) { return this._transformBounds(bounds, matrix, ignoreTransform); }
 		return this.Container__getBounds(matrix, ignoreTransform);
 	};
 
-createjs.MovieClip = MovieClip;
+
+	createjs.MovieClip = createjs.promote(MovieClip, "Container");
 
 
 
+// MovieClipPlugin for TweenJS:
 	/**
 	 * This plugin works with <a href="http://tweenjs.com" target="_blank">TweenJS</a> to prevent the startPosition
 	 * property from tweening.
@@ -567,60 +706,66 @@ createjs.MovieClip = MovieClip;
 	 * @class MovieClipPlugin
 	 * @constructor
 	 **/
-	var MovieClipPlugin = function() {
-	  throw("MovieClipPlugin cannot be instantiated.")
-	};
+	function MovieClipPlugin() {
+		throw("MovieClipPlugin cannot be instantiated.")
+	}
 	
 	/**
-	 * @method priority
-	 * @private
+	 * @property priority
+	 * @type {Number}
+	 * @static
+	 * @readonly
 	 **/
 	MovieClipPlugin.priority = 100; // very high priority, should run first
+	
+	/**
+	 * @property ID
+	 * @type {String}
+	 * @static
+	 * @readonly
+	 **/
+	MovieClipPlugin.ID = "MovieClip";
 
 	/**
 	 * @method install
-	 * @private
+	 * @static
 	 **/
 	MovieClipPlugin.install = function() {
-		createjs.Tween.installPlugin(MovieClipPlugin, ["startPosition"]);
+		createjs.Tween._installPlugin(MovieClipPlugin);
 	};
 	
 	/**
 	 * @method init
 	 * @param {Tween} tween
 	 * @param {String} prop
-	 * @param {String|Number|Boolean} value
-	 * @private
+	 * @param {*} value
+	 * @static
 	 **/
 	MovieClipPlugin.init = function(tween, prop, value) {
-		return value;
+		if (prop === "startPosition" && tween.target instanceof MovieClip) { tween._addPlugin(MovieClipPlugin); }
 	};
 	
 	/**
 	 * @method step
-	 * @private
+	 * @param {Tween} tween
+	 * @param {TweenStep} step
+	 * @param {Object} props
+	 * @static
 	 **/
-	MovieClipPlugin.step = function() {
-		// unused.
-	};
+	MovieClipPlugin.step = function(tween, step, props) {};
 
 	/**
-	 * @method tween
+	 * @method change
 	 * @param {Tween} tween
-	 * @param {String} prop
-	 * @param {String | Number | Boolean} value
-	 * @param {Array} startValues
-	 * @param {Array} endValues
+	 * @param {TweenStep} step
+	 * @param {*} value
 	 * @param {Number} ratio
-	 * @param wait
-	 * @param end
+	 * @param {Object} end
 	 * @return {*}
+	 * @static
 	 */
-	MovieClipPlugin.tween = function(tween, prop, value, startValues, endValues, ratio, wait, end) {
-		if (!(tween.target instanceof MovieClip)) { return value; }
-		return (ratio == 1 ? endValues[prop] : startValues[prop]);
+	MovieClipPlugin.change = function(tween, step, prop, value, ratio, end) {
+		if (prop === "startPosition") { return (ratio === 1 ? step.props[prop] : step.prev.props[prop]); }
 	};
-
-	MovieClipPlugin.install();
 
 }());

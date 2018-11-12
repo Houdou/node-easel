@@ -22,7 +22,7 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  * OTHER DEALINGS IN THE SOFTWARE.
  */
-var Canvas = require('canvas');
+var Canvas = require('canvas').Canvas;
 var Image = Canvas.Image;
 
 /**
@@ -37,7 +37,10 @@ Canvas.prototype.addEventListener = function () { };
  *
  * @type {Object}
  */
-window = { addEventListener:function () { } };
+window = {
+	addEventListener: function () { },
+	performance: require('perf_hooks').performance
+};
 
 /**
  * node-canvas doesn't support cloneNode();
@@ -72,47 +75,65 @@ var classes = [
 	// Shared
 	'createjs/events/EventDispatcher',
 	'createjs/events/Event',
-	'createjs/utils/IndexOf',
+	'createjs/utils/indexOf',
+	'createjs/utils/extend',
+	'createjs/utils/deprecate',
+	'createjs/utils/promote',
+	'createjs/utils/Ticker',
 
 	// TweenJS code (used by MovieClip)
-	'tweenjs/CSSPlugin',
+	'tweenjs/plugins/ColorPlugin',
+	'tweenjs/plugins/CSSPlugin',
+	'tweenjs/plugins/DotPlugin',
+	'tweenjs/plugins/MotionGuidePlugin',
+	'tweenjs/plugins/RelativePlugin',
+	'tweenjs/plugins/RotationPlugin',
+	'tweenjs/plugins/SamplePlugin',
+	'tweenjs/AbstractTween',
 	'tweenjs/Ease',
-	'tweenjs/MotionGuidePlugin',
 	'tweenjs/Timeline',
 	'tweenjs/Tween',
+	'tweenjs/TweenGroup',
 	'tweenjs/version',
 
 	// EaselJS code
 	'easeljs/utils/UID',
 	'easeljs/utils/SpriteSheetBuilder',
 	'easeljs/utils/SpriteSheetUtils',
-	'easeljs/utils/Ticker',
+	'easeljs/utils/VideoBuffer',
+	'easeljs/utils/WebGLInspector',
 	'easeljs/events/MouseEvent',
+	'easeljs/geom/DisplayProps',
 	'easeljs/geom/Matrix2D',
 	'easeljs/geom/Rectangle',
 	'easeljs/geom/Point',
 	'easeljs/display/DisplayObject',
 	'easeljs/display/Container',
 	'easeljs/display/Stage',
+	'easeljs/display/StageGL',
 	'easeljs/display/Shadow',
 	'easeljs/display/Shape',
 	'easeljs/display/SpriteSheet',
 	'easeljs/display/Sprite',
 	'easeljs/display/Text',
+	'easeljs/display/DOMElement',
 	'easeljs/display/Bitmap',
 	'easeljs/display/BitmapText',
-	'easeljs/display/BitmapAnimation',
 	'easeljs/display/Graphics',
 	'easeljs/display/MovieClip',
 	'easeljs/filters/Filter',
+	'easeljs/filters/AberrationFilter',
 	'easeljs/filters/AlphaMapFilter',
 	'easeljs/filters/AlphaMaskFilter',
+	'easeljs/filters/BitmapCache',
 	'easeljs/filters/BlurFilter',
 	'easeljs/filters/ColorFilter',
 	'easeljs/filters/ColorMatrix',
 	'easeljs/filters/ColorMatrixFilter',
+	'easeljs/filters/DisplacementFilter',
+	'easeljs/ui/ButtonHelper',
+	'easeljs/ui/Touch',
 	'easeljs/version',
-	'easeljs/version_movieclip'
 ];
 
 for (var i = 0; i < classes.length; i++) {
@@ -138,3 +159,5 @@ createjs.Ticker.halt = function() {
 		clearTimeout(createjs.Ticker.timeoutID);
 	}
 }
+
+module.exports = createjs;

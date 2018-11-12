@@ -35,6 +35,9 @@ this.createjs = this.createjs || {};
 
 (function () {
 	"use strict";
+	
+	
+// constructor:
 	/**
 	 * Applies a greyscale alpha map image (or canvas) to the target, such that the alpha channel of the result will
 	 * be copied from the red channel of the map, and the RGB channels will be copied from the target.
@@ -61,91 +64,151 @@ this.createjs = this.createjs || {};
 	 * @class AlphaMapFilter
 	 * @extends Filter
 	 * @constructor
-	 * @param {Image|HTMLCanvasElement} alphaMap The greyscale image (or canvas) to use as the alpha value for the
+	 * @param {HTMLImageElement|HTMLCanvasElement|WebGLTexture} alphaMap The greyscale image (or canvas) to use as the alpha value for the
 	 * result. This should be exactly the same dimensions as the target.
 	 **/
-	var AlphaMapFilter = function (alphaMap) {
-		this.initialize(alphaMap);
-	};
-	var p = AlphaMapFilter.prototype = new createjs.Filter();
+	function AlphaMapFilter(alphaMap) {
+		this.Filter_constructor();
 
-// constructor:
-	/** @ignore */
-	p.initialize = function (alphaMap) {
+		if (!createjs.Filter.isValidImageSource(alphaMap)) {
+			throw "Must provide valid image source for alpha map, see Filter.isValidImageSource";
+		}
+
+	// public properties:
+		/**
+		 * The greyscale image (or canvas) to use as the alpha value for the result. This should be exactly the same
+		 * dimensions as the target.
+		 * @property alphaMap
+		 * @type HTMLImageElement|HTMLCanvasElement
+		 **/
 		this.alphaMap = alphaMap;
+		
+	// private properties:
+		/**
+		 * @property _map
+		 * @protected
+		 * @type HTMLImageElement|HTMLCanvasElement
+		 **/
+		this._map = null;
+		
+		/**
+		 * @property _mapCtx
+		 * @protected
+		 * @type CanvasRenderingContext2D
+		 **/
+		this._mapCtx = null;
+
+		/**
+		 * @property _mapTexture
+		 * @protected
+		 * @type WebGLTexture
+		 */
+		this._mapTexture = null;
+
+		this.FRAG_SHADER_BODY = (
+			"uniform sampler2D uAlphaSampler;"+
+
+			"void main(void) {" +
+				"vec4 color = texture2D(uSampler, vTextureCoord);" +
+				"vec4 alphaMap = texture2D(uAlphaSampler, vTextureCoord);" +
+
+				// some image formats can have transparent white rgba(1,1,1, 0) when put on the GPU, this means we need a slight tweak
+				// using ceil ensure that the colour will be used so long as it exists but pure transparency will be treated black
+				"float newAlpha = alphaMap.r * ceil(alphaMap.a);" +
+				"gl_FragColor = vec4(clamp(color.rgb/color.a, 0.0, 1.0) * newAlpha, newAlpha);" +
+			"}"
+		);
+
+		if(alphaMap instanceof WebGLTexture) {
+			this._mapTexture = alphaMap;
+		}
+	}
+	var p = createjs.extend(AlphaMapFilter, createjs.Filter);
+
+	// TODO: deprecated
+	// p.initialize = function() {}; // searchable for devs wondering where it is. REMOVED. See docs for details.
+
+	// Docced in superclass
+	p.shaderParamSetup = function(gl, stage, shaderProgram) {
+		if(this._mapTexture === null) { this._mapTexture = gl.createTexture(); }
+
+		gl.activeTexture(gl.TEXTURE1);
+		gl.bindTexture(gl.TEXTURE_2D, this._mapTexture);
+		stage.setTextureParams(gl);
+		if (this.alphaMap !== this._mapTexture) {
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.alphaMap);
+		}
+
+		gl.uniform1i(
+			gl.getUniformLocation(shaderProgram, "uAlphaSampler"),
+			1
+		);
 	};
-
-// public properties:
-
-	/**
-	 * The greyscale image (or canvas) to use as the alpha value for the result. This should be exactly the same
-	 * dimensions as the target.
-	 * @property alphaMap
-	 * @type Image|HTMLCanvasElement
-	 **/
-	p.alphaMap = null;
-
-// private properties:
-	p._alphaMap = null;
-	p._mapData = null;
 
 // public methods:
-
-	p.applyFilter = function (ctx, x, y, width, height, targetCtx, targetX, targetY) {
-		if (!this.alphaMap) {
-			return true;
-		}
-		if (!this._prepAlphaMap()) {
-			return false;
-		}
-		targetCtx = targetCtx || ctx;
-		if (targetX == null) {
-			targetX = x;
-		}
-		if (targetY == null) {
-			targetY = y;
-		}
-
-		try {
-			var imageData = ctx.getImageData(x, y, width, height);
-		} catch (e) {
-			//if (!this.suppressCrossDomainErrors) throw new Error("unable to access local image data: " + e);
-			return false;
-		}
-		var data = imageData.data;
-		var map = this._mapData;
-		var l = data.length;
-		for(var i = 0; i < l; i += 4) {
-			data[i + 3] = map[i] || 0;
-		}
-		imageData.data = data;
-		targetCtx.putImageData(imageData, targetX, targetY);
-		return true;
-	};
-
-	/**
-	 * Returns a clone of this object.
-	 * @return {AlphaMapFilter} A clone of the current AlphaMapFilter instance.
-	 **/
+	// Docced in superclass
 	p.clone = function () {
-		return new AlphaMapFilter(this.alphaMap);
+		var o = new AlphaMapFilter(this.alphaMap);
+		return o;
 	};
 
+	// Docced in superclass
 	p.toString = function () {
 		return "[AlphaMapFilter]";
 	};
 
+
 // private methods:
-	p._prepAlphaMap = function () {
-		if (!this.alphaMap) {
-			return false;
-		}
-		if (this.alphaMap == this._alphaMap && this._mapData) {
-			return true;
+	// Docced in superclass
+	p._applyFilter = function (imageData) {
+		if (!this._prepAlphaMap()) { return false; }
+
+		var outArray = imageData.data;
+		var width = imageData.width;
+		var height = imageData.height;
+		var rowOffset, pixelStart;
+
+		var sampleData = this._mapCtx.getImageData(0,0, this._map.width,this._map.height);
+		var sampleArray = sampleData.data;
+		var sampleWidth = sampleData.width;
+		var sampleHeight = sampleData.height;
+		var sampleRowOffset, samplePixelStart;
+
+		var widthRatio = sampleWidth/width;
+		var heightRatio = sampleHeight/height;
+
+		// performance optimizing lookup
+
+		// the x and y need to stretch separately, nesting the for loops simplifies this logic even if the array is flat
+		for (var i=0; i<height; i++) {
+			rowOffset = i * width;
+			sampleRowOffset = ((i*heightRatio) |0) * sampleWidth;
+
+			// the arrays are int arrays, so a single pixel is [r,g,b,a, ...],so calculate the start of the pixel
+			for (var j=0; j<width; j++) {
+				pixelStart = (rowOffset + j) *4;
+				samplePixelStart = (sampleRowOffset + ((j*widthRatio) |0)) *4;
+
+				// modify the pixels
+				outArray[pixelStart] =   outArray[pixelStart];
+				outArray[pixelStart+1] = outArray[pixelStart+1];
+				outArray[pixelStart+2] = outArray[pixelStart+2];
+				outArray[pixelStart+3] = sampleArray[samplePixelStart];
+			}
 		}
 
-		this._mapData = null;
-		var map = this._alphaMap = this.alphaMap;
+		return true;
+	};
+
+	/**
+	 * @method _prepAlphaMap
+	 * @protected
+	 **/
+	p._prepAlphaMap = function () {
+		if (!this.alphaMap) { return false; }
+		if (this.alphaMap === this._map && this._mapCtx) { return true; }
+
+		var map = this._map = this.alphaMap;
 		var canvas = map;
 		var ctx;
 		if (map instanceof HTMLCanvasElement) {
@@ -158,16 +221,11 @@ this.createjs = this.createjs || {};
 			ctx.drawImage(map, 0, 0);
 		}
 
-		try {
-			var imgData = ctx.getImageData(0, 0, map.width, map.height);
-		} catch (e) {
-			//if (!this.suppressCrossDomainErrors) throw new Error("unable to access local image data: " + e);
-			return false;
-		}
-		this._mapData = imgData.data;
+		this._mapCtx = ctx;
+
 		return true;
 	};
 
-	createjs.AlphaMapFilter = AlphaMapFilter;
 
+	createjs.AlphaMapFilter = createjs.promote(AlphaMapFilter, "Filter");
 }());

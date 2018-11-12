@@ -36,61 +36,114 @@ this.createjs = this.createjs||{};
 (function() {
 	"use strict";
 
-/**
- * Allows you to carry out complex color operations such as modifying saturation, brightness, or inverting. See the
- * {{#crossLink "ColorMatrix"}}{{/crossLink}} for more information on changing colors. For an easier color transform,
- * consider the {{#crossLink "ColorFilter"}}{{/crossLink}}.
- *
- * <h4>Example</h4>
- * This example creates a red circle, inverts its hue, and then saturates it to brighten it up.
- *
- *      var shape = new createjs.Shape().set({x:100,y:100});
- *      shape.graphics.beginFill("#ff0000").drawCircle(0,0,50);
- *
- *      var matrix = new createjs.ColorMatrix().adjustHue(180).adjustSaturation(100);
- *      shape.filters = [
- *          new createjs.ColorMatrixFilter(matrix)
- *      ];
- *
- *      shape.cache(-50, -50, 100, 100);
- *
- * See {{#crossLink "Filter"}}{{/crossLink}} for an more information on applying filters.
- * @class ColorMatrixFilter
- * @constructor
- * @extends Filter
- * @param {Array} matrix A 4x5 matrix describing the color operation to perform. See also the {{#crossLink "ColorMatrix"}}{{/crossLink}}
- * class.
- **/
-var ColorMatrixFilter = function(matrix) {
-  this.initialize(matrix);
-};
-var p = ColorMatrixFilter.prototype = new createjs.Filter();
-
-// public properties:
-	p.matrix = null;
 
 // constructor:
-	// TODO: detailed docs.
 	/**
-	 * @method initialize
-	 * @protected
-	 * @param {Array} matrix A 4x5 matrix describing the color operation to perform.
+	 * Allows you to carry out complex color operations such as modifying saturation, brightness, or inverting. See the
+	 * {{#crossLink "ColorMatrix"}}{{/crossLink}} for more information on changing colors. For an easier color transform,
+	 * consider the {{#crossLink "ColorFilter"}}{{/crossLink}}.
+	 *
+	 * <h4>Example</h4>
+	 * This example creates a red circle, inverts its hue, and then saturates it to brighten it up.
+	 *
+	 *      var shape = new createjs.Shape().set({x:100,y:100});
+	 *      shape.graphics.beginFill("#ff0000").drawCircle(0,0,50);
+	 *
+	 *      var matrix = new createjs.ColorMatrix().adjustHue(180).adjustSaturation(100);
+	 *      shape.filters = [
+	 *          new createjs.ColorMatrixFilter(matrix)
+	 *      ];
+	 *
+	 *      shape.cache(-50, -50, 100, 100);
+	 *
+	 * <h4>Example</h4>
+	 * This example uses a preset to generate a sepia photograph effect
+	 *
+	 *      var shape = new createjs.Shape().set({x:100,y:100});
+	 *      shape.graphics.beginFill("#ff0000").drawCircle(0,0,50);
+	 *
+	 *      shape.filters = [
+	 *          new createjs.ColorMatrixFilter( createjs.ColorMatrix.createSepiaPreset() )
+	 *      ];
+	 *
+	 *      shape.cache(-50, -50, 100, 100);
+	 *
+	 * See {{#crossLink "Filter"}}{{/crossLink}} for an more information on applying filters.
+	 * @class ColorMatrixFilter
+	 * @constructor
+	 * @extends Filter
+	 * @param {Array | ColorMatrix} matrix A 4x5 matrix describing the color operation to perform. See also the {{#crossLink "ColorMatrix"}}{{/crossLink}}
+	 * class.
 	 **/
-	p.initialize = function(matrix) {
+	function ColorMatrixFilter(matrix) {
+		this.Filter_constructor();
+
+	// public properties:
+		/**
+		 * A 4x5 matrix describing the color operation to perform. See also the {{#crossLink "ColorMatrix"}}{{/crossLink}}
+		 * @property matrix
+		 * @type Array | ColorMatrix
+		 **/
 		this.matrix = matrix;
+
+		this.FRAG_SHADER_BODY = (
+			"uniform mat4 uColorMatrix;" +
+			"uniform vec4 uColorMatrixOffset;" +
+
+			"void main(void) {" +
+				"vec4 color = texture2D(uSampler, vTextureCoord);" +
+
+				"mat4 m = uColorMatrix;" +
+				"vec4 newColor = vec4(" +
+					"color.r*m[0][0] + color.g*m[0][1] + color.b*m[0][2] + color.a*m[0][3]," +
+					"color.r*m[1][0] + color.g*m[1][1] + color.b*m[1][2] + color.a*m[1][3]," +
+					"color.r*m[2][0] + color.g*m[2][1] + color.b*m[2][2] + color.a*m[2][3]," +
+					"color.r*m[3][0] + color.g*m[3][1] + color.b*m[3][2] + color.a*m[3][3]" +
+				");" +
+
+				"gl_FragColor = newColor + uColorMatrixOffset;" +
+			"}"
+		);
+	}
+	var p = createjs.extend(ColorMatrixFilter, createjs.Filter);
+
+	// TODO: deprecated
+	// p.initialize = function() {}; // searchable for devs wondering where it is. REMOVED. See docs for details.
+
+	// Docced in superclass
+	p.shaderParamSetup = function(gl, stage, shaderProgram) {
+		var mat = this.matrix;
+		var colorMatrix = new Float32Array([
+			mat[0],mat[1],mat[2],mat[3],
+			mat[5],mat[6],mat[7],mat[8],
+			mat[10],mat[11],mat[12],mat[13],
+			mat[15],mat[16],mat[17],mat[18]
+		]);
+
+		gl.uniformMatrix4fv(
+			gl.getUniformLocation(shaderProgram, "uColorMatrix"),
+			false, colorMatrix
+		);
+		gl.uniform4f(
+			gl.getUniformLocation(shaderProgram, "uColorMatrixOffset"),
+			mat[4]/255, mat[9]/255, mat[14]/255, mat[19]/255
+		);
 	};
 
 // public methods:
-	p.applyFilter = function(ctx, x, y, width, height, targetCtx, targetX, targetY) {
-		targetCtx = targetCtx || ctx;
-		if (targetX == null) { targetX = x; }
-		if (targetY == null) { targetY = y; }
-		try {
-			var imageData = ctx.getImageData(x, y, width, height);
-		} catch(e) {
-			//if (!this.suppressCrossDomainErrors) throw new Error("unable to access local image data: " + e);
-			return false;
-		}
+	// Docced in superclass
+	p.toString = function() {
+		return "[ColorMatrixFilter]";
+	};
+
+	// Docced in superclass
+	p.clone = function() {
+		return new ColorMatrixFilter(this.matrix);
+	};
+
+// private methods:
+	// Docced in superclass
+	p._applyFilter = function(imageData) { 
 		var data = imageData.data;
 		var l = data.length;
 		var r,g,b,a;
@@ -110,23 +163,8 @@ var p = ColorMatrixFilter.prototype = new createjs.Filter();
 			data[i+2] = r*m10+g*m11+b*m12+a*m13+m14; // blue
 			data[i+3] = r*m15+g*m16+b*m17+a*m18+m19; // alpha
 		}
-		targetCtx.putImageData(imageData, targetX, targetY);
 		return true;
 	};
 
-	p.toString = function() {
-		return "[ColorMatrixFilter]";
-	};
-
-	/**
-	 * Returns a clone of this ColorMatrixFilter instance.
-	 * @method clone
-	 * @return {ColorMatrixFilter} A clone of the current ColorMatrixFilter instance.
-	 **/
-	p.clone = function() {
-		return new ColorMatrixFilter(this.matrix);
-	};
-
-	createjs.ColorMatrixFilter = ColorMatrixFilter;
-
+	createjs.ColorMatrixFilter = createjs.promote(ColorMatrixFilter, "Filter");
 }());

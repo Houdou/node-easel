@@ -36,6 +36,8 @@ this.createjs = this.createjs || {};
 (function () {
 	"use strict";
 
+
+// constructor:
 	/**
 	 * Applies the alpha from the mask image (or canvas) to the target, such that the alpha channel of the result will
 	 * be derived from the mask, and the RGB channels will be copied from the target. This can be used, for example, to
@@ -62,30 +64,60 @@ this.createjs = this.createjs || {};
 	 * @class AlphaMaskFilter
 	 * @extends Filter
 	 * @constructor
-	 * @param {Image} mask
+	 * @param {HTMLImageElement|HTMLCanvasElement|WebGLTexture} mask
 	 **/
-	var AlphaMaskFilter = function (mask) {
-		this.initialize(mask);
-	}
-	var p = AlphaMaskFilter.prototype = new createjs.Filter();
+	function AlphaMaskFilter(mask) {
+		this.Filter_constructor();
 
-// constructor:
-	/** @ignore */
-	p.initialize = function (mask) {
+		if (!createjs.Filter.isValidImageSource(mask)) {
+			throw "Must provide valid image source for alpha mask, see Filter.isValidImageSource";
+		}
+
+	// public properties:
+		/**
+		 * The image (or canvas) to use as the mask.
+		 * @property mask
+		 * @type HTMLImageElement|HTMLCanvasElement
+		 **/
 		this.mask = mask;
+
+		// Docced in superclass
+		this.usesContext = true;
+
+		this.FRAG_SHADER_BODY = (
+			"uniform sampler2D uAlphaSampler;"+
+
+			"void main(void) {" +
+				"vec4 color = texture2D(uSampler, vTextureCoord);" +
+				"vec4 alphaMap = texture2D(uAlphaSampler, vTextureCoord);" +
+
+				"gl_FragColor = vec4(color.rgb * alphaMap.a, color.a * alphaMap.a);" +
+			"}"
+		);
 	}
+	var p = createjs.extend(AlphaMaskFilter, createjs.Filter);
 
-// public properties:
+	// TODO: deprecated
+	// p.initialize = function() {}; // searchable for devs wondering where it is. REMOVED. See docs for details.
 
-	/**
-	 * The image (or canvas) to use as the mask.
-	 * @property mask
-	 * @type Image
-	 **/
-	p.mask = null;
+	// Docced in superclass
+	p.shaderParamSetup = function(gl, stage, shaderProgram) {
+		if(!this._mapTexture) { this._mapTexture = gl.createTexture(); }
+
+		gl.activeTexture(gl.TEXTURE1);
+		gl.bindTexture(gl.TEXTURE_2D, this._mapTexture);
+		stage.setTextureParams(gl);
+		if (this.mask !== this._mapTexture) {
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.mask);
+		}
+
+		gl.uniform1i(
+			gl.getUniformLocation(shaderProgram, "uAlphaSampler"),
+			1
+		);
+	};
 
 // public methods:
-
 	/**
 	 * Applies the filter to the specified context.
 	 *
@@ -98,48 +130,37 @@ this.createjs = this.createjs || {};
 	 * @param {Number} width The width to use for the source rect.
 	 * @param {Number} height The height to use for the source rect.
 	 * @param {CanvasRenderingContext2D} [targetCtx] The 2D context to draw the result to. Defaults to the context passed to ctx.
-	 * @param {Number} [targetX] The x position to draw the result to. Defaults to the value passed to x.
-	 * @param {Number} [targetY] The y position to draw the result to. Defaults to the value passed to y.
 	 * @return {Boolean} If the filter was applied successfully.
 	 **/
-	p.applyFilter = function (ctx, x, y, width, height, targetCtx, targetX, targetY) {
-		if (!this.mask) {
-			return true;
-		}
-		targetCtx = targetCtx || ctx;
-		if (targetX == null) {
-			targetX = x;
-		}
-		if (targetY == null) {
-			targetY = y;
+	p.applyFilter = function (ctx, x, y, width, height, targetCtx) {
+		if (!this.mask) { return true; }
+
+		if (targetCtx === undefined) { targetCtx = ctx; }
+		if (targetCtx !== ctx) {
+			targetCtx.drawImage(ctx.canvas,
+				0, 0, ctx.canvas.width, ctx.canvas.height,
+				0, 0, targetCtx.canvas.width, targetCtx.canvas.height
+			);
 		}
 
 		targetCtx.save();
-		if (ctx != targetCtx) {
-			// TODO: support targetCtx and targetX/Y
-			// clearRect, then draw the ctx in?
-		}
 
 		targetCtx.globalCompositeOperation = "destination-in";
-		targetCtx.drawImage(this.mask, targetX, targetY);
+		targetCtx.drawImage(this.mask, 0,0, this.mask.width,this.mask.height, x,y, width,height);
+
 		targetCtx.restore();
 		return true;
-	}
+	};
 
-	/**
-	 * Returns a clone of this object.
-	 * @return {AlphaMaskFilter}
-	 **/
+	// Docced in superclass
 	p.clone = function () {
 		return new AlphaMaskFilter(this.mask);
-	}
+	};
 
+	// Docced in superclass
 	p.toString = function () {
 		return "[AlphaMaskFilter]";
-	}
+	};
 
-// private methods:
-
-
-	createjs.AlphaMaskFilter = AlphaMaskFilter;
+	createjs.AlphaMaskFilter = createjs.promote(AlphaMaskFilter, "Filter");
 }());

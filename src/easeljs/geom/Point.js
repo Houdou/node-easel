@@ -36,61 +36,131 @@ this.createjs = this.createjs||{};
 (function() {
 	"use strict";
 
-/**
- * Represents a point on a 2 dimensional x / y coordinate system.
- *
- * <h4>Example</h4>
- *      var point = new Point(0, 100);
- *
- * @class Point
- * @param {Number} [x=0] X position.
- * @param {Number} [y=0] Y position.
- * @constructor
- **/
-var Point = function(x, y) {
-  this.initialize(x, y);
-};
-var p = Point.prototype;
-
-// public properties:
-
-	/**
-	 * X position.
-	 * @property x
-	 * @type Number
-	 **/
-	p.x = 0;
-
-	/**
-	 * Y position.
-	 * @property y
-	 * @type Number
-	 **/
-	p.y = 0;
 
 // constructor:
+	/**
+	 * Represents a point on a 2 dimensional x / y coordinate system.
+	 *
+	 * <h4>Example</h4>
+	 * 
+	 *      var point = new createjs.Point(0, 100);
+	 * 
+	 * @class Point
+	 * @param {Number} [x=0] X position.
+	 * @param {Number} [y=0] Y position.
+	 * @constructor
+	 **/
+	function Point(x, y) {
+	 	this.setValues(x, y);
+	 	
+	 	
+	// public properties:
+		// assigned in the setValues method.
+		/**
+		 * X position.
+		 * @property x
+		 * @type Number
+		 * @default 0
+		 **/
+	
+		/**
+		 * Y position.
+		 * @property y
+		 * @type Number
+		 * @default 0
+		 **/
+	}
+	var p = Point.prototype;
+	
+// public methods:
 	/** 
-	 * Initialization method. Can also be used to reinitialize the instance.
-	 * @method initialize
+	 * Sets the specified values on this instance.
+	 * @method setValues
 	 * @param {Number} [x=0] X position.
 	 * @param {Number} [y=0] Y position.
 	 * @return {Point} This instance. Useful for chaining method calls.
+	 * @chainable
 	*/
-	p.initialize = function(x, y) {
-		this.x = (x == null ? 0 : x);
-		this.y = (y == null ? 0 : y);
+	p.setValues = function(x, y) {
+		this.x = x||0;
+		this.y = y||0;
 		return this;
 	};
 	
-// public methods:
+	/** 
+	 * Offsets the Point object by the specified amount.
+	 * <ul>
+	 *     <li>The value of `dx` is added to the original value of `x` to create the new `x` value</li>
+	 *     <li>The value of `dy` is added to the original value of `y` to create the new `y` value</li>
+	 * </ul>
+	 * @method offset
+	 * @param {Number} dx The amount by which to offset the horizontal coordinate, `x`.
+	 * @param {Number} dy The amount by which to offset the vertical coordinate, `y`.
+	 * @return {Point} This instance. Useful for chaining method calls.
+	 * @chainable
+	*/
+	p.offset = function(dx, dy) {
+		this.x += dx;
+		this.y += dy;
+		return this;
+	};
+
+	/** 
+	 * Converts a pair of polar coordinates to a Cartesian point coordinate.
+	 * @method polar
+	 * @param {Number} len The length coordinate of the polar pair.
+	 * @param {Number} angle The angle, in radians, of the polar pair.
+	 * @param {Point | Object} [pt] An object to copy the result into. If omitted a new {{#crossLink "Point"}}{{/crossLink}}
+	 * will be returned.
+	 * @return {Point} The new, interpolated point.
+	 * @static
+	*/
+	Point.polar = function(len, angle, pt) {
+		pt = pt||new Point();
+		pt.x = len * Math.cos(angle);
+		pt.y = len * Math.sin(angle);
+		return pt;
+	};
+
+	/**
+	 * Determine a point between two specified points.
+	 *
+	 * The parameter `f` determines where the new interpolated point is located relative to the two end points specified
+	 * by parameters `pt1` and `pt2`:
+	 * <ul>
+	 *     <li>The closer the value of the parameter `f` is to 1.0, the closer the interpolated point is to the first
+	 *     point (parameter `pt1`).</li>
+	 *     <li>The closer the value of the parameter `f` is to 0, the closer the interpolated point is to the second
+	 *     point (parameter `pt2`).</li>
+	 * </ul>
+	 * @method interpolate
+	 * @param {Point | Object} pt1 The first point as a Point or generic object.
+	 * @param {Point | Object} pt2 The second point as a Point or generic object.
+	 * @param {Number} f The level of interpolation between the two points. Indicates where the new point will be, along
+	 * the line between `pt1` and `pt2`. If `f=1`, `pt1` is returned; if `f=0`, `pt2` is returned.
+	 * @param {Point | Object} [pt] An object to copy the result into. If omitted, a new {{#crossLink "Point"}}{{/crossLink}}
+	 * will be returned.
+	 * @return {Point} A new interpolated Point, or the `pt` passed in the 4th parameter with the interpolated values.
+	 * @static
+	*/
+	Point.interpolate = function(pt1, pt2, f, pt) {
+		pt = pt || new Point();
+		pt.x = pt2.x + f * (pt1.x - pt2.x);
+		pt.y = pt2.y + f * (pt1.y - pt2.y);
+		return pt;
+	};
+	
 	/**
 	 * Copies all properties from the specified point to this point.
 	 * @method copy
 	 * @param {Point} point The point to copy properties from.
 	 * @return {Point} This point. Useful for chaining method calls.
+	 * @chainable
 	*/
 	p.copy = function(point) {
-		return this.initialize(point.x, point.y);
+		this.x = point.x;
+		this.y = point.y;
+		return this;
 	};
 	
 	/**
@@ -111,5 +181,6 @@ var p = Point.prototype;
 		return "[Point (x="+this.x+" y="+this.y+")]";
 	};
 	
-createjs.Point = Point;
+	
+	createjs.Point = Point;
 }());
